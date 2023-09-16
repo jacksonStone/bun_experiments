@@ -9,7 +9,7 @@ async function debugReq() {
         method,
     }
     if(body) {
-        reqOptions.body = JSON.parse(body);
+        reqOptions.body = body;
     }
     if(headers) {
         reqOptions.headers = JSON.parse(headers);
@@ -103,8 +103,7 @@ if(process.env.NODE_ENV !== "production") {
                 if(!debugContainer) return;
                 // Check if the click was outside the debugContainer
                 if (!debugContainer.contains(event.target as Node)) {
-                    debugContainer.style.display = 'none';
-                    (window as any).debug.isVisible = false;
+                    toggleDebug()
                 }
             }
         });
