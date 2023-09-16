@@ -15,14 +15,20 @@ export class JaxAuth<User> {
     public encryptionFunctionName: string = ENCRYPTION_FUNCTION_NAME
     public experation: number = 1000 * 60 * 60 * 24 * 30 // 30 days
     public cookieName: string = COOKIE_NAME
+    public useDevCookie: boolean = false
     /**
      * Attempts to login the user, if the login is successful, it will return the stringified cookie meant to contain auth details
      * @param userId 
      * @param password Plain text password
      * @returns 
      */
-    public async attemptLoginAndGetCookie(userId: string, password: string): Promise<string> {
-        const user: User = await this.getUser(userId);
+    public async attemptLoginAndGetCookie(userId: string | User, password: string): Promise<string> {
+        let user: User;
+        if(typeof userId === "string") {
+            user = await this.getUser(userId);
+        } else {
+            user = userId
+        }
         const hashPassword: string = this.getUserHashPasswordField(user);
         const saltForPassword: string = this.getUserPasswordSaltField(user);
         if (JaxAuth.hash(password + saltForPassword) !== hashPassword) {
@@ -42,7 +48,10 @@ export class JaxAuth<User> {
         let hmac = JaxAuth.hash(crypted + nonce + experation + this.getHMACKey())
         // Encrypted cookie with nonce and hmac
         const cookieContent = [nonce, experation, crypted, hmac].join(':')
-        return this.cookieName+"="+encodeURIComponent(cookieContent)+'; HttpOnly; Max-Age=' + this.experation + "; SameSite=Strict; Secure";
+        if(this.useDevCookie) {
+            return this.cookieName+"="+encodeURIComponent(cookieContent)+'; Max-Age=' + this.experation + "; SameSite=Lax; Path=/";
+        }
+        return this.cookieName+"="+encodeURIComponent(cookieContent)+'; HttpOnly; Max-Age=' + this.experation + "; SameSite=Strict; Secure; Path=/";
     }
     /**
      * Takes the request "cookie" header string contents (raw), and will extract the auth header, verifying it's contents are legitimate and unexpired
@@ -102,6 +111,11 @@ export class JaxAuthBuilder<User> {
 
     constructor() {
         this.jaxAuthInstance = new JaxAuth<User>();
+    }
+
+    setUseDevelopmentCookie(useDevCookie: boolean): JaxAuthBuilder<User> {
+        this.jaxAuthInstance.useDevCookie = useDevCookie;
+        return this;
     }
 
     setUserGetter(func: (userId: string) => Promise<User>): JaxAuthBuilder<User> {
