@@ -19,7 +19,7 @@ export async function router(req: Request): Promise<Response> {
             const userId = body.userId
             const password = body.password
             console.log(userId, password);
-            const cookie = await auth.attemptVerify(userId, password);
+            const cookie = await auth.attemptLoginAndGetCookie(userId, password);
             return new Response(null, {headers: {'Set-Cookie':cookie}});
         }
         if(url.pathname === "/verify") {

@@ -21,7 +21,7 @@ export class JaxAuth<User> {
      * @param password Plain text password
      * @returns 
      */
-    public async attemptVerify(userId: string, password: string): Promise<string> {
+    public async attemptLoginAndGetCookie(userId: string, password: string): Promise<string> {
         const user: User = await this.getUser(userId);
         const hashPassword: string = this.getUserHashPasswordField(user);
         const saltForPassword: string = this.getUserPasswordSaltField(user);
@@ -38,9 +38,10 @@ export class JaxAuth<User> {
         cipher.write(cookieContents)
         cipher.end()
         let crypted = cipher.read()
-        let hmac = JaxAuth.hash(crypted + nonce + this.getHMACKey())
+        let experation = this.experation + Date.now();
+        let hmac = JaxAuth.hash(crypted + nonce + experation + this.getHMACKey())
         // Encrypted cookie with nonce and hmac
-        const cookieContent = [nonce, crypted, hmac].join(':')
+        const cookieContent = [nonce, experation, crypted, hmac].join(':')
         return this.cookieName+"="+encodeURIComponent(cookieContent)+'; HttpOnly; Max-Age=' + this.experation + "; SameSite=Strict; Secure";
     }
     /**
@@ -55,13 +56,17 @@ export class JaxAuth<User> {
         if(!headers[this.cookieName]) {
             throw new Error("No auth header");
         }
-        const encryptedCookieContents = headers[this.cookieName];
-        if (!this.verifyBodyWithHMAC(encryptedCookieContents)) {
+        const rawAuthCookie = headers[this.cookieName];
+        if (!this.verifyBodyWithHMAC(rawAuthCookie)) {
             throw new Error("Tampered contents");
         }
-        let parts = encryptedCookieContents.split(':')
+        let parts = rawAuthCookie.split(':')
         let nonce = parts[0]
-        let encryptedText = parts[1]
+        let experation = parts[1]
+        let encryptedText = parts[2]
+        if(parseInt(experation) < Date.now()) {
+            throw Error("Expired cookie");
+        }
         let decipher = crypto.createDecipheriv(ENCRYPTION_FUNCTION_NAME, this.getEncryptionSecret(), nonce)
         let dec = decipher.update(encryptedText, 'hex', 'utf8')
         dec += decipher.final('utf8')
@@ -72,9 +77,10 @@ export class JaxAuth<User> {
         let parts = encryptionBody.split(':')
         if (parts.length < 3) return false
         let nonce = parts[0]
-        let encryptedText = parts[1]
-        let hmac = parts[2]
-        let newHMAC = JaxAuth.hash(encryptedText + nonce + this.getHMACKey())
+        let experation = parts[1]
+        let encryptedText = parts[2]
+        let hmac = parts[3]
+        let newHMAC = JaxAuth.hash(encryptedText + nonce + experation + this.getHMACKey())
         return hmac === newHMAC
     }
 

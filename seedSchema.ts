@@ -44,7 +44,7 @@ createExampleUser();
 
 
 async function attemptLogin() {
-    const cookie = await auth.attemptVerify(userId, "12345")
+    const cookie = await auth.attemptLoginAndGetCookie(userId, "12345")
     console.log(cookie);
     console.log("Hold on, we're decrytping");
     console.log(auth.attemptCookieDecryption(cookie));
